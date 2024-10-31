@@ -1,16 +1,30 @@
-module Memory(
-    input wire clk;
+module memory (
+    input wire clk,
+    input wire MemRead,
+    input wire MemWrite,
     input wire [7:0] address,
     input wire [7:0] data_in,
-    input wire write_enable,
     output reg [7:0] data_out
 );
 
-reg [7:0] mem_array [255:0];
-    always @(posedge clk) begin
-        if(write_enable) begin
-            mem_array[address] <= data_out;
-        end
-        data_out <= mem_array[address];
+reg [7:0] mem [0:255];  // 256 bytes of memory
+
+initial begin
+    // Initialize memory with zeros
+    mem[0] = 8'h00;
+    mem[1] = 8'h00;
+    mem[2] = 8'h00;
+    // ... and so on for other addresses you need
+    data_out = 8'h00;
+end
+
+always @(posedge clk) begin
+    if (MemWrite) begin
+        mem[address] <= data_in;
     end
-endModule
+    if (MemRead) begin
+        data_out <= mem[address];
+    end
+end
+
+endmodule

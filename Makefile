@@ -1,24 +1,27 @@
-# Define variables
-VLOG = iverilog
+# Makefile for CPU simulation
+
+# Compiler settings
+IVERILOG = iverilog
 VVP = vvp
-SRC = cpu.v control_unit.v alu.v memory.v registers.v
-TESTBENCH = testbench.v  # Replace with your actual testbench filename
-OUTPUT = cpu_sim
+WAVE_VIEWER = gtkwave
 
-# Define the default target
-all: $(OUTPUT)
+# Source files
+SOURCES = cpu.v alu.v control_unit.v memory.v testbench.v
+TARGET = cpu_sim
+WAVE_FILE = cpu_wave.vcd
 
-# Compile Verilog files
-$(OUTPUT): $(SRC) $(TESTBENCH)
-	$(VLOG) -o $(OUTPUT) $(SRC) $(TESTBENCH)
+.PHONY: all clean run wave
 
-# Run the simulation
-run: $(OUTPUT)
-	$(VVP) $(OUTPUT)
+all: $(TARGET)
 
-# Clean up generated files
+$(TARGET): $(SOURCES)
+	$(IVERILOG) -o $(TARGET) $(SOURCES)
+
+run: $(TARGET)
+	$(VVP) $(TARGET)
+
+wave: run
+	$(WAVE_VIEWER) $(WAVE_FILE)
+
 clean:
-	rm -f $(OUTPUT) *.vcd
-
-# Phony targets
-.PHONY: all run clean
+	rm -f $(TARGET) $(WAVE_FILE)

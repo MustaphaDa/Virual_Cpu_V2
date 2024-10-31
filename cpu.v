@@ -1,74 +1,120 @@
 module CPU(
     input wire clk,
     input wire reset,
-    input wire [7:0] instruction, // Input instruction
-    output wire [7:0] result, // Output result
-    output wire zero, // Zero flag output
-    output wire carry, // Carry flag output
-    output wire negative // Negative flag output
+    output wire [7:0] result,
+    output wire zero,
+    output wire carry,
+    output wire negative
 );
-    // Internal signals
-    wire [7:0] opcode;
-    wire [7:0] A, B; // Operands
-    wire [7:0] mem_data; // Data from memory
-    wire mem_read, mem_write, reg_write, branch;
-    wire [7:0] alu_result; // Result from ALU
 
-    // Instantiate registers
-    reg [7:0] regA, regB; // General-purpose registers
-    always @(posedge clk or posedge reset) begin
-        if (reset) begin
-            regA <= 8'b0;
-            regB <= 8'b0;
-        end else begin
-            // Update registers based on instruction
-            regA <= A; // Example logic to update registers
-            regB <= B;
+// Internal registers and memory
+reg [7:0] pc;                    // Program Counter
+reg [7:0] instruction_memory[0:255]; // Instruction memory (loaded in testbench)
+reg [7:0] data_memory[0:255];    // Data memory
+reg [7:0] registers[0:7];        // Register file with 8 registers
+reg [7:0] current_instruction;   // Current instruction register
+
+// Internal signals
+wire [3:0] opcode;
+wire [2:0] rd, rs1, rs2;         // Adjusted to 3 bits for more registers
+wire [3:0] immediate;            // Immediate value (4 bits)
+wire [7:0] alu_result;
+wire [7:0] alu_op;
+
+// Control signals
+wire mem_read, mem_write, reg_write, branch;
+
+// Instruction decode
+assign opcode = current_instruction[7:4];    // Upper 4 bits are opcode
+assign rd = current_instruction[3:2];        // Destination register (2 bits)
+assign rs1 = current_instruction[1:0];       // Source register 1 (2 bits)
+assign rs2 = current_instruction[1:0];       // Source register 2 (2 bits)
+assign immediate = current_instruction[3:0];  // Immediate value (4 bits)
+
+// Initialize registers and memory
+always @(posedge clk or posedge reset) begin
+    if (reset) begin
+        registers[0] <= 8'd0;
+        registers[1] <= 8'd0;
+        registers[2] <= 8'd0;
+        registers[3] <= 8'd0;
+        registers[4] <= 8'd0;
+        registers[5] <= 8'd0;
+        registers[6] <= 8'd0;
+        registers[7] <= 8'd0;
+    end
+end
+
+// Program counter update
+always @(posedge clk or posedge reset) begin
+    if (reset) begin
+        pc <= 0;
+    end else begin
+        pc <= pc + 1;
+    end
+end
+
+// Instruction fetch
+always @(posedge clk) begin
+    if (!reset) begin
+        current_instruction <= instruction_memory[pc];
+    end
+end
+
+// Control Unit instantiation
+ControlUnit control_unit (
+    .opcode(opcode),
+    .ALUOp(alu_op),
+    .MemRead(mem_read),
+    .MemWrite(mem_write),
+    .RegWrite(reg_write),
+    .Branch(branch),
+    .Jump(),                // Not used in this implementation
+    .address()             // Not used in this implementation
+);
+
+// ALU instantiation
+Alu alu (
+    .opcode(alu_op),
+    .A(registers[rs1]),
+    .B(registers[rs2]),
+    .Result(alu_result),
+    .Zero(zero),
+    .Carry(carry),
+    .Negative(negative)
+);
+
+// Execute stage - Register write and memory operations
+always @(posedge clk) begin
+    if (!reset) begin
+        // Write result to destination register
+        if (reg_write) begin
+            case (opcode)
+                4'b0000: registers[rd] <= alu_result; // AND
+                4'b0001: registers[rd] <= alu_result; // OR
+                4'b0010: registers[rd] <= alu_result; // ADD
+                4'b0011: registers[rd] <= alu_result; // SUB
+                4'b0100: registers[rd] <= data_memory[immediate]; // LD
+            endcase
+        end
+        
+        // Memory write operation
+        if (mem_write) begin
+            data_memory[immediate] <= registers[rs1]; // STORE
         end
     end
+end
 
-    // Instantiate Control Unit
-    ControlUnit CU (
-        .opcode(instruction[7:0]), // Assuming the instruction includes the opcode
-        .ALUOp(opcode),
-        .MemRead(mem_read),
-        .MemWrite(mem_write),
-        .RegWrite(reg_write),
-        .Branch(branch)
-    );
+// Output assignment
+assign result = alu_result;
 
-    // Instantiate ALU
-    ALU alu (
-        .opcode(opcode),
-        .A(regA),
-        .B(regB),
-        .Result(alu_result),
-        .zero(zero),
-        .Carry(carry),
-        .Negative(negative)
-    );
-
-    // Instantiate Memory
-    Memory mem (
-        .address(/* Address logic here */),
-        .data_in(regB), // Input data to write to memory
-        .data_out(mem_data), // Output data from memory
-        .mem_read(mem_read),
-        .mem_write(mem_write)
-    );
-
-    // Logic to determine which operations to perform
-    always @(posedge clk or posedge reset) begin
-        if (reset) begin
-            // Reset logic
-            // Reset internal states, registers, etc.
-        end else begin
-            // Fetch, decode, and execute instruction logic
-            // Load instruction, execute ALU operation, handle memory access, etc.
-        end
-    end
-
-    // Assign output result
-    assign result = alu_result; // Assuming result is directly from the ALU
+// Debug output
+always @(posedge clk) begin
+    $display("Time=%0t PC=%0d Instruction=%b", $time, pc, current_instruction);
+    $display("Registers: R0=%0d R1=%0d R2=%0d R3=%0d", 
+             registers[0], registers[1], registers[2], registers[3]);
+    $display("ALU Result=%0d Zero=%b Carry=%b Negative=%b",
+             alu_result, zero, carry, negative);
+end
 
 endmodule
