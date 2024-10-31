@@ -1,3 +1,4 @@
+// CPU module with instruction execution
 module CPU(
     input wire clk,
     input wire reset,
@@ -9,40 +10,46 @@ module CPU(
 
 // Internal registers and memory
 reg [7:0] pc;                    // Program Counter
-reg [7:0] instruction_memory[0:255]; // Instruction memory (loaded in testbench)
+reg [7:0] instruction_memory[0:255]; // Instruction memory
 reg [7:0] data_memory[0:255];    // Data memory
 reg [7:0] registers[0:7];        // Register file with 8 registers
 reg [7:0] current_instruction;   // Current instruction register
 
 // Internal signals
 wire [3:0] opcode;
-wire [2:0] rd, rs1, rs2;         // Adjusted to 3 bits for more registers
-wire [3:0] immediate;            // Immediate value (4 bits)
+wire [1:0] rd, rs1, rs2;
+wire [3:0] immediate;
 wire [7:0] alu_result;
 wire [7:0] alu_op;
 
 // Control signals
 wire mem_read, mem_write, reg_write, branch;
+wire [7:0] mem_data;
 
 // Instruction decode
 assign opcode = current_instruction[7:4];    // Upper 4 bits are opcode
 assign rd = current_instruction[3:2];        // Destination register (2 bits)
 assign rs1 = current_instruction[1:0];       // Source register 1 (2 bits)
-assign rs2 = current_instruction[1:0];       // Source register 2 (2 bits)
+assign rs2 = current_instruction[3:2];       // Source register 2 (2 bits)
 assign immediate = current_instruction[3:0];  // Immediate value (4 bits)
 
 // Initialize registers and memory
-always @(posedge clk or posedge reset) begin
-    if (reset) begin
-        registers[0] <= 8'd0;
-        registers[1] <= 8'd0;
-        registers[2] <= 8'd0;
-        registers[3] <= 8'd0;
-        registers[4] <= 8'd0;
-        registers[5] <= 8'd0;
-        registers[6] <= 8'd0;
-        registers[7] <= 8'd0;
-    end
+initial begin
+    pc = 0;
+    current_instruction = 0;
+    
+    // Initialize registers
+    registers[0] = 0;
+    registers[1] = 0;
+    registers[2] = 0;
+    registers[3] = 0;
+    registers[4] = 0;
+    registers[5] = 0;
+    registers[6] = 0;
+    registers[7] = 0;
+    
+    // Initialize memories
+    // We'll load program in testbench
 end
 
 // Program counter update
@@ -87,20 +94,18 @@ Alu alu (
 // Execute stage - Register write and memory operations
 always @(posedge clk) begin
     if (!reset) begin
-        // Write result to destination register
         if (reg_write) begin
             case (opcode)
-                4'b0000: registers[rd] <= alu_result; // AND
-                4'b0001: registers[rd] <= alu_result; // OR
-                4'b0010: registers[rd] <= alu_result; // ADD
-                4'b0011: registers[rd] <= alu_result; // SUB
+                4'b0000: registers[rd] <= alu_result;           // AND
+                4'b0001: registers[rd] <= alu_result;           // OR
+                4'b0010: registers[rd] <= alu_result;           // ADD
+                4'b0011: registers[rd] <= alu_result;           // SUB
                 4'b0100: registers[rd] <= data_memory[immediate]; // LD
             endcase
         end
         
-        // Memory write operation
         if (mem_write) begin
-            data_memory[immediate] <= registers[rs1]; // STORE
+            data_memory[immediate] <= registers[rs1];           // STORE
         end
     end
 end
